@@ -1,0 +1,635 @@
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>Code Dojo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#101826;
+    --surface:#172336;
+    --surface-2:#1E2C43;
+    --line:#2B3C57;
+    --text:#E6EDF6;
+    --muted:#8FA3BF;
+    --py:#7FD0E8;
+    --js:#F2B54B;
+    --bad:#FF8B7A;
+    --good:#8FE0A6;
+    --accent:var(--py);
+    --nav-h:60px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:"Space Grotesk",system-ui,sans-serif;
+    font-size:15px;line-height:1.5;
+    display:flex;flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  button{font-family:inherit;font-size:inherit;color:inherit;border:none;background:none;cursor:pointer}
+
+  /* ---------- top bar ---------- */
+  header{
+    flex:0 0 auto;display:flex;align-items:center;gap:12px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+    background:var(--surface);border-bottom:1px solid var(--line);
+  }
+  .mark{font-weight:700;letter-spacing:-.02em;font-size:17px}
+  .mark span{color:var(--accent)}
+  .switch{
+    margin-left:auto;display:flex;background:var(--bg);
+    border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;
+  }
+  .switch button{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;
+    padding:7px 11px;border-radius:6px;color:var(--muted);transition:background .15s,color .15s;
+  }
+  .switch button[aria-pressed="true"]{background:var(--surface-2);color:var(--accent)}
+  .streak{
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);
+    border:1px solid var(--line);border-radius:9px;padding:6px 9px;
+  }
+  .streak b{color:var(--text);font-weight:600}
+
+  /* ---------- panes ---------- */
+  main{flex:1 1 auto;position:relative;overflow:hidden}
+  .pane{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden}
+  .pane.on{display:flex}
+  .scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 14px 22px}
+
+  /* ---------- editor ---------- */
+  .editor-wrap{flex:1 1 55%;display:flex;flex-direction:column;min-height:0;position:relative}
+  .filebar{
+    display:flex;align-items:center;gap:8px;padding:8px 14px;
+    font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);
+    border-bottom:1px solid var(--line);
+  }
+  .filebar .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .filebar .spacer{margin-left:auto}
+  .filebar button{font-family:inherit;font-size:12px;color:var(--muted);padding:4px 6px}
+  textarea#code{
+    flex:1 1 auto;width:100%;resize:none;border:none;outline:none;
+    background:var(--bg);color:var(--text);
+    font-family:"IBM Plex Mono",monospace;font-size:13.5px;line-height:1.65;
+    padding:12px 14px 62px;white-space:pre;overflow:auto;
+    tab-size:4;
+  }
+  .run{
+    position:absolute;right:14px;bottom:14px;
+    display:flex;align-items:center;gap:8px;
+    background:var(--accent);color:#0C1420;font-weight:700;
+    padding:13px 20px;border-radius:999px;
+    box-shadow:0 6px 18px rgba(0,0,0,.45);
+  }
+  .run:disabled{opacity:.55}
+  .run .tri{width:0;height:0;border-left:9px solid #0C1420;border-top:6px solid transparent;border-bottom:6px solid transparent}
+
+  /* ---------- console ---------- */
+  .console{
+    flex:0 0 40%;min-height:0;display:flex;flex-direction:column;
+    background:var(--surface);border-top:1px solid var(--line);
+  }
+  .console .filebar{border-bottom:1px solid var(--line);border-top:none}
+  .out{
+    flex:1 1 auto;overflow:auto;padding:10px 14px 16px;margin:0;
+    font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.6;
+    white-space:pre-wrap;word-break:break-word;color:var(--text);
+  }
+  .out .err{color:var(--bad)}
+  .out .sys{color:var(--muted)}
+  .out .ok{color:var(--good)}
+  .fix{
+    margin:2px 14px 12px;align-self:flex-start;
+    border:1px solid var(--bad);color:var(--bad);
+    border-radius:8px;padding:8px 12px;font-size:13px;
+  }
+
+  /* ---------- lesson pane ---------- */
+  .lesson h2{font-size:21px;line-height:1.25;letter-spacing:-.02em;margin:0 0 4px}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent);margin-bottom:14px}
+  .lesson p{margin:0 0 12px;max-width:62ch}
+  .lesson code{font-family:"IBM Plex Mono",monospace;background:var(--surface-2);padding:1px 5px;border-radius:4px;font-size:.9em}
+  .task{
+    border-left:3px solid var(--accent);background:var(--surface);
+    padding:12px 14px;border-radius:0 10px 10px 0;margin:16px 0;
+  }
+  .task strong{display:block;margin-bottom:4px;font-size:14px}
+  .big{
+    display:block;width:100%;text-align:center;
+    background:var(--accent);color:#0C1420;font-weight:700;
+    padding:15px;border-radius:12px;margin-top:6px;
+  }
+  .ghost{
+    display:block;width:100%;text-align:center;
+    border:1px solid var(--line);background:var(--surface);
+    padding:13px;border-radius:12px;margin-top:10px;color:var(--text);
+  }
+  .empty{color:var(--muted);max-width:56ch}
+  .empty h2{color:var(--text)}
+
+  /* ---------- tutor ---------- */
+  .chat{flex:1 1 auto;overflow-y:auto;padding:16px 14px 8px;display:flex;flex-direction:column;gap:12px}
+  .msg{max-width:88%;padding:11px 14px;border-radius:14px;font-size:14.5px;white-space:pre-wrap;word-break:break-word}
+  .msg.me{align-self:flex-end;background:var(--surface-2);border-bottom-right-radius:4px}
+  .msg.ai{align-self:flex-start;background:var(--surface);border-bottom-left-radius:4px;border-left:2px solid var(--accent)}
+  .msg code{font-family:"IBM Plex Mono",monospace;font-size:.88em;background:rgba(0,0,0,.3);padding:1px 4px;border-radius:4px}
+  .msg pre{font-family:"IBM Plex Mono",monospace;font-size:12.5px;background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto;margin:8px 0 0}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:8px 14px;border-top:1px solid var(--line)}
+  .chips button{
+    flex:0 0 auto;border:1px solid var(--line);border-radius:999px;
+    padding:8px 13px;font-size:13px;color:var(--muted);background:var(--surface)
+  }
+  .composer{display:flex;gap:8px;padding:8px 14px 14px;border-top:1px solid var(--line);background:var(--surface)}
+  .composer textarea{
+    flex:1;background:var(--bg);border:1px solid var(--line);border-radius:12px;
+    color:var(--text);font-family:inherit;font-size:15px;padding:11px 13px;
+    resize:none;max-height:110px;outline:none;
+  }
+  .composer textarea:focus{border-color:var(--accent)}
+  .send{background:var(--accent);color:#0C1420;border-radius:12px;padding:0 16px;font-weight:700}
+
+  /* ---------- bottom nav ---------- */
+  nav{
+    flex:0 0 auto;display:flex;background:var(--surface);border-top:1px solid var(--line);
+    height:var(--nav-h);
+  }
+  nav button{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    font-size:11.5px;color:var(--muted);position:relative;
+  }
+  nav button[aria-pressed="true"]{color:var(--accent)}
+  nav button[aria-pressed="true"]::before{
+    content:"";position:absolute;top:0;left:22%;right:22%;height:2px;background:var(--accent)
+  }
+  nav .ic{font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:600}
+
+  .thinking{display:flex;gap:4px;align-self:flex-start;padding:12px 14px}
+  .thinking i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:b 1.2s infinite}
+  .thinking i:nth-child(2){animation-delay:.15s}
+  .thinking i:nth-child(3){animation-delay:.3s}
+  @keyframes b{0%,60%,100%{opacity:.25}30%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){.thinking i{animation:none;opacity:.6}}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<header>
+  <div class="mark">Code<span>Dojo</span></div>
+  <div class="switch" role="group" aria-label="Language">
+    <button id="btn-py" aria-pressed="true">python</button>
+    <button id="btn-js" aria-pressed="false">javascript</button>
+  </div>
+  <div class="streak" title="Lessons finished">✓ <b id="done-count">0</b></div>
+</header>
+
+<main>
+  <!-- LESSON -->
+  <section class="pane" id="pane-lesson">
+    <div class="scroll lesson" id="lesson-body"></div>
+  </section>
+
+  <!-- CODE -->
+  <section class="pane on" id="pane-code">
+    <div class="editor-wrap">
+      <div class="filebar">
+        <span class="dot"></span><span id="filename">main.py</span>
+        <span class="spacer"></span>
+        <button id="btn-clear">clear</button>
+      </div>
+      <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea>
+      <button class="run" id="btn-run"><span class="tri"></span><span id="run-label">Run</span></button>
+    </div>
+    <div class="console">
+      <div class="filebar"><span id="con-label">output</span><span class="spacer"></span><button id="btn-wipe">clear</button></div>
+      <pre class="out" id="out"><span class="sys">Write some code and press Run.</span></pre>
+      <button class="fix" id="btn-fix" hidden>Ask the tutor about this error</button>
+    </div>
+  </section>
+
+  <!-- TUTOR -->
+  <section class="pane" id="pane-tutor">
+    <div class="chat" id="chat"></div>
+    <div class="chips">
+      <button data-ask="Look at the code I have open and explain what it does, line by line, in plain language.">Explain my code</button>
+      <button data-ask="Give me a small practice exercise for what I'm working on right now. Don't give me the answer.">Practice exercise</button>
+      <button data-ask="I'm stuck. Give me one hint, not the solution.">One hint</button>
+      <button data-ask="Review my code and tell me what I'd do differently as I get better.">Review my code</button>
+    </div>
+    <div class="composer">
+      <textarea id="ask" rows="1" placeholder="Ask anything about your code"></textarea>
+      <button class="send" id="btn-send">Send</button>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button id="nav-lesson"><span class="ic">§</span>Lesson</button>
+  <button id="nav-code" aria-pressed="true"><span class="ic">&lt;/&gt;</span>Code</button>
+  <button id="nav-tutor"><span class="ic">?</span>Tutor</button>
+</nav>
+
+<script>
+/* ============================ state ============================ */
+const MODEL = "claude-sonnet-4-6";
+
+const STARTERS = {
+  python: 'name = "friend"\nprint("Hello, " + name + "!")\n\nfor i in range(1, 4):\n    print(i, "x 7 =", i * 7)\n',
+  javascript: 'const name = "friend";\nconsole.log(`Hello, ${name}!`);\n\nfor (let i = 1; i < 4; i++) {\n  console.log(i, "x 7 =", i * 7);\n}\n'
+};
+
+let state = {
+  lang: "python",
+  code: { python: STARTERS.python, javascript: STARTERS.javascript },
+  done: { python: 0, javascript: 0 },
+  covered: { python: [], javascript: [] },
+  lesson: { python: null, javascript: null },
+  chat: { python: [], javascript: [] },
+  lastRun: null
+};
+
+/* storage: persists if the host supports it, otherwise session-only */
+const store = {
+  async load(){
+    try{
+      const r = await window.storage.get("dojo:v1");
+      if(r && r.value) Object.assign(state, JSON.parse(r.value), {lastRun:null});
+    }catch(e){ /* first run or no storage — keep defaults */ }
+  },
+  async save(){
+    try{ await window.storage.set("dojo:v1", JSON.stringify(state)); }catch(e){}
+  }
+};
+let saveTimer;
+const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(store.save, 600); };
+
+/* ============================ dom ============================ */
+const $ = id => document.getElementById(id);
+const codeEl = $("code"), outEl = $("out"), chatEl = $("chat");
+
+function setLang(lang){
+  state.code[state.lang] = codeEl.value;
+  state.lang = lang;
+  document.documentElement.style.setProperty("--accent", lang === "python" ? "var(--py)" : "var(--js)");
+  $("btn-py").setAttribute("aria-pressed", lang === "python");
+  $("btn-js").setAttribute("aria-pressed", lang === "javascript");
+  $("filename").textContent = lang === "python" ? "main.py" : "main.js";
+  codeEl.value = state.code[lang];
+  $("done-count").textContent = state.done[lang];
+  renderLesson();
+  renderChat();
+  saveSoon();
+}
+$("btn-py").onclick = () => setLang("python");
+$("btn-js").onclick = () => setLang("javascript");
+
+const panes = {lesson:$("pane-lesson"), code:$("pane-code"), tutor:$("pane-tutor")};
+function go(name){
+  for(const k in panes){
+    panes[k].classList.toggle("on", k === name);
+    $("nav-" + k).setAttribute("aria-pressed", k === name);
+  }
+}
+$("nav-lesson").onclick = () => go("lesson");
+$("nav-code").onclick = () => go("code");
+$("nav-tutor").onclick = () => go("tutor");
+
+codeEl.addEventListener("input", () => { state.code[state.lang] = codeEl.value; saveSoon(); });
+codeEl.addEventListener("keydown", e => {
+  if(e.key === "Tab"){
+    e.preventDefault();
+    const s = codeEl.selectionStart, t = codeEl.selectionEnd;
+    codeEl.value = codeEl.value.slice(0,s) + "    " + codeEl.value.slice(t);
+    codeEl.selectionStart = codeEl.selectionEnd = s + 4;
+    state.code[state.lang] = codeEl.value;
+  }
+});
+$("btn-clear").onclick = () => { codeEl.value = ""; state.code[state.lang] = ""; codeEl.focus(); saveSoon(); };
+$("btn-wipe").onclick = () => { outEl.textContent = ""; $("btn-fix").hidden = true; };
+
+/* ============================ running code ============================ */
+function write(text, cls){
+  const span = document.createElement("span");
+  if(cls) span.className = cls;
+  span.textContent = text + "\n";
+  outEl.appendChild(span);
+  outEl.scrollTop = outEl.scrollHeight;
+}
+function fmt(args){
+  return args.map(a => {
+    if(typeof a === "string") return a;
+    if(a instanceof Error) return a.toString();
+    try{ return JSON.stringify(a); }catch(e){ return String(a); }
+  }).join(" ");
+}
+
+/* Python runs on Brython (a pure-JavaScript Python 3). Pyodide is WebAssembly,
+   which this sandbox blocks, so it can't be used here. */
+let pyReady = false, pyLoading = null, pySink = null;
+window.__dojo_out = (txt, kind) => { if(pySink) pySink(String(txt), kind); };
+
+function withTimeout(p, ms, label){
+  return Promise.race([
+    p,
+    new Promise((_, no) => setTimeout(() => no(new Error(label + " gave up after " + Math.round(ms/1000) + "s")), ms))
+  ]);
+}
+function loadScript(src){
+  return new Promise((ok, no) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = ok; s.onerror = () => no(new Error("couldn't fetch " + src));
+    document.head.appendChild(s);
+  });
+}
+
+const PY_SETUP = [
+  "import sys",
+  "from browser import window",
+  "class _DojoOut:",
+  "    def __init__(self, kind): self.kind = kind",
+  "    def write(self, txt): window.__dojo_out(txt, self.kind)",
+  "    def flush(self): pass",
+  "sys.stdout = _DojoOut('out')",
+  "sys.stderr = _DojoOut('err')"
+].join("\n");
+
+function pyExec(src, name){
+  const B = window.__BRYTHON__;
+  if(B && typeof B.runPythonSource === "function") return B.runPythonSource(src, name);
+  if(B && typeof B.run_script === "function") return B.run_script(src, name, true);
+  throw new Error("Brython loaded but exposes no way to run source");
+}
+
+async function getPython(){
+  if(pyReady) return true;
+  if(!pyLoading){
+    pyLoading = (async () => {
+      const cores = [
+        "https://cdnjs.cloudflare.com/ajax/libs/brython/3.12.5/brython.min.js",
+        "https://cdn.jsdelivr.net/npm/brython@3.12/brython.min.js"
+      ];
+      const libs = [
+        "https://cdnjs.cloudflare.com/ajax/libs/brython/3.12.5/brython_stdlib.min.js",
+        "https://cdn.jsdelivr.net/npm/brython@3.12/brython_stdlib.js"
+      ];
+      let err;
+      for(let i = 0; i < cores.length; i++){
+        try{
+          if(typeof brython === "undefined") await withTimeout(loadScript(cores[i]), 25000, "Downloading Python");
+          try{ await withTimeout(loadScript(libs[i]), 30000, "Downloading the standard library"); }
+          catch(e){ /* core alone still runs plain Python */ }
+          try{ brython({debug:0, ids:[]}); }catch(e){ brython(0); }
+          pyExec(PY_SETUP, "dojo_setup");
+          pyReady = true;
+          return true;
+        }catch(e){ err = e; }
+      }
+      throw err || new Error("Python engine unavailable");
+    })().catch(e => { pyLoading = null; throw e; });
+  }
+  return pyLoading;
+}
+
+let running = false;
+async function runCode(){
+  if(running) return;
+  running = true;
+  const btn = $("btn-run"), label = $("run-label");
+  btn.disabled = true; label.textContent = "Running";
+  $("btn-fix").hidden = true;
+  outEl.textContent = "";
+
+  const code = codeEl.value;
+  const lines = [];
+  let failed = null;
+
+  try{
+    if(state.lang === "javascript"){
+      const keep = {log:console.log, error:console.error, warn:console.warn, info:console.info};
+      const cap = cls => (...a) => { const t = fmt(a); lines.push(t); write(t, cls); };
+      console.log = console.info = cap(null); console.warn = cap("sys"); console.error = cap("err");
+      try{
+        const AsyncFn = Object.getPrototypeOf(async function(){}).constructor;
+        const result = await new AsyncFn(code)();
+        if(result !== undefined){ const t = fmt([result]); lines.push(t); write(t); }
+      }catch(e){
+        failed = String(e && e.message ? e.name + ": " + e.message : e);
+        write(failed, "err");
+      }finally{ Object.assign(console, keep); }
+    }else{
+      write("Starting Python — the first run downloads it, so give it a moment.", "sys");
+      let ok = false;
+      try{
+        ok = await getPython();
+      }catch(e){
+        write("Python didn't start: " + (e && e.message ? e.message : e), "err");
+        write("Switch to javascript at the top and keep going — that needs no download.", "sys");
+      }
+      if(ok){
+        outEl.textContent = "";
+        let buf = "";
+        pySink = (txt, kind) => {
+          buf += txt;
+          const parts = buf.split("\n");
+          buf = parts.pop();
+          parts.forEach(l => { lines.push(l); write(l, kind === "err" ? "err" : null); });
+          if(kind === "err") failed = (failed || "") + txt;
+        };
+        try{
+          pyExec(code, "main");
+          if(buf){ lines.push(buf); write(buf); buf = ""; }
+        }catch(e){
+          const raw = String((e && (e.$message || e.message)) || e).trim();
+          failed = raw.split("\n").slice(-4).join("\n");
+          write(failed, "err");
+        }finally{ pySink = null; }
+        if(failed) failed = failed.trim();
+      }else{
+        failed = "python-engine";
+      }
+    }
+
+    if(!lines.length && !failed){
+      write("Ran with no output. Use " + (state.lang === "python" ? "print()" : "console.log()") + " to show a value.", "sys");
+    }
+    state.lastRun = {code, output: lines.join("\n").slice(0,1200), error: failed};
+    $("btn-fix").hidden = !failed || failed === "python-engine";
+  }catch(e){
+    write("The sandbox itself hit a problem: " + (e && e.message ? e.message : e), "err");
+    write("Press Run to try again.", "sys");
+  }finally{
+    running = false;
+    btn.disabled = false;
+    label.textContent = "Run";
+    saveSoon();
+  }
+}
+$("btn-run").onclick = runCode;
+
+$("btn-fix").onclick = () => {
+  go("tutor");
+  ask("I ran my code and got this error:\n" + state.lastRun.error + "\n\nWhat does it mean and how do I fix it? Don't paste the fixed code — walk me to it.");
+};
+
+/* ============================ claude ============================ */
+async function claude(system, messages){
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({model: MODEL, max_tokens: 1000, system, messages})
+  });
+  if(!res.ok) throw new Error("status " + res.status);
+  const data = await res.json();
+  return data.content.map(b => b.type === "text" ? b.text : "").join("").trim();
+}
+
+function context(){
+  const l = state.lesson[state.lang];
+  return [
+    "Language: " + state.lang,
+    "Lessons finished in this language: " + state.done[state.lang],
+    "Topics already covered: " + (state.covered[state.lang].join(", ") || "none yet"),
+    l ? "Current lesson: " + l.title + " — task: " + l.task : "No lesson loaded.",
+    "Code currently in their editor:\n" + (codeEl.value || "(empty)"),
+    state.lastRun ? "Last run output:\n" + (state.lastRun.error || state.lastRun.output || "(nothing)") : "They haven't run anything yet."
+  ].join("\n");
+}
+
+const TUTOR_SYSTEM = () => [
+  "You are a patient programming instructor teaching one beginner, one to one, inside a small phone app where they write and run code.",
+  "Rules:",
+  "- Keep replies short. Two or three short paragraphs at most. They are reading on a phone.",
+  "- Never dump a full solution unless they clearly ask for it twice. Lead with a question or a hint.",
+  "- Use concrete examples from THEIR code, quoting the actual variable names they chose.",
+  "- Explain errors by what the computer was trying to do when it failed.",
+  "- Code you show must run in this sandbox: no input(), no prompt(), no file access, no browser DOM. Python here is Brython, so built-ins and common standard-library modules (math, random, datetime, json, collections) work, but third-party packages like numpy, pandas or requests do not exist.",
+  "- Encourage, but never praise code that is wrong. Say plainly when something will break, and why.",
+  "- No markdown headers or bullet spam. Write like a person talking.",
+  "",
+  "Their current situation:",
+  context()
+].join("\n");
+
+function bubble(role, text){
+  const d = document.createElement("div");
+  d.className = "msg " + (role === "user" ? "me" : "ai");
+  d.innerHTML = text
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/```[a-z]*\n?([\s\S]*?)```/g, (m,c) => "<pre>" + c.trim() + "</pre>")
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  chatEl.appendChild(d);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+function renderChat(){
+  chatEl.innerHTML = "";
+  const log = state.chat[state.lang];
+  if(!log.length){
+    bubble("assistant", "I'm your instructor. I can see the code in your editor and whatever it printed, so you can just say things like \"why did this break?\" or \"what's a list comprehension?\" and I'll know what you're looking at.\n\nWhat do you want to work on?");
+  }
+  log.forEach(m => bubble(m.role, m.content));
+}
+
+let busy = false;
+async function ask(text){
+  if(busy || !text.trim()) return;
+  busy = true;
+  const log = state.chat[state.lang];
+  log.push({role:"user", content:text});
+  bubble("user", text);
+  const dots = document.createElement("div");
+  dots.className = "thinking";
+  dots.innerHTML = "<i></i><i></i><i></i>";
+  chatEl.appendChild(dots); chatEl.scrollTop = chatEl.scrollHeight;
+  try{
+    const reply = await claude(TUTOR_SYSTEM(), log.slice(-12));
+    dots.remove();
+    log.push({role:"assistant", content:reply});
+    bubble("assistant", reply);
+  }catch(e){
+    dots.remove();
+    bubble("assistant", "That didn't reach me — connection problem. Send it again.");
+    log.pop();
+  }
+  busy = false;
+  saveSoon();
+}
+$("btn-send").onclick = () => { const t = $("ask").value; $("ask").value = ""; $("ask").style.height = "auto"; go("tutor"); ask(t); };
+$("ask").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 110) + "px"; });
+document.querySelectorAll(".chips button").forEach(b => b.onclick = () => ask(b.dataset.ask));
+
+/* ============================ lessons ============================ */
+function renderLesson(){
+  const l = state.lesson[state.lang];
+  const box = $("lesson-body");
+  if(!l){
+    box.innerHTML =
+      '<div class="empty"><h2>Nothing loaded yet</h2>' +
+      '<p>Each lesson is built for where you are right now: one idea, a short explanation, and starter code you finish yourself. ' +
+      'Finish one and the next builds on it.</p></div>' +
+      '<button class="big" id="btn-lesson">Start my first ' + state.lang + ' lesson</button>';
+  }else{
+    box.innerHTML =
+      '<div class="kicker">lesson ' + (state.done[state.lang] + 1) + ' · ' + state.lang + '</div>' +
+      '<h2></h2><div id="lesson-text"></div>' +
+      '<div class="task"><strong>Your turn</strong><span id="lesson-task"></span></div>' +
+      '<button class="big" id="btn-load">Put the starter code in the editor</button>' +
+      '<button class="ghost" id="btn-hint">I want a hint</button>' +
+      '<button class="ghost" id="btn-done">I finished this — next lesson</button>';
+    box.querySelector("h2").textContent = l.title;
+    $("lesson-task").textContent = l.task;
+    const t = $("lesson-text");
+    (l.explanation || []).forEach(p => {
+      const el = document.createElement("p");
+      el.innerHTML = p.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/`([^`]+)`/g,"<code>$1</code>");
+      t.appendChild(el);
+    });
+    $("btn-load").onclick = () => {
+      codeEl.value = l.starterCode || "";
+      state.code[state.lang] = codeEl.value;
+      go("code"); saveSoon();
+    };
+    $("btn-hint").onclick = () => { go("tutor"); ask("Hint for this lesson task, please: " + l.task); };
+    $("btn-done").onclick = () => {
+      state.done[state.lang]++;
+      state.covered[state.lang].push(l.title);
+      $("done-count").textContent = state.done[state.lang];
+      nextLesson();
+    };
+  }
+  if($("btn-lesson")) $("btn-lesson").onclick = nextLesson;
+}
+
+async function nextLesson(){
+  const box = $("lesson-body");
+  box.innerHTML = '<div class="empty"><h2>Building your lesson…</h2><p>Picking something that follows on from what you have already done.</p></div>';
+  const system =
+    "You write single micro-lessons for a beginner learning " + state.lang + " in a phone sandbox that runs code in the browser. " +
+    "They have finished " + state.done[state.lang] + " lessons. Already covered: " + (state.covered[state.lang].join(", ") || "nothing yet") + ". " +
+    "Teach exactly ONE new idea that follows naturally from that. Keep it very short — this is a phone screen. " +
+    "Starter code must run in this browser sandbox: no input(), no prompt(), no file access, no DOM, no third-party packages (no numpy, pandas or requests). Python here is Brython, so built-ins and common standard-library modules are fine. " +
+    "Starter code should be mostly complete with one clearly marked TODO for them to finish. " +
+    "Reply with raw JSON only, no markdown fences, no preamble, in this shape: " +
+    '{"title": string, "explanation": [string, string], "starterCode": string, "task": string}. ' +
+    "Each explanation string is 1-3 plain sentences. Use backticks around code words inside explanations.";
+  try{
+    const raw = await claude(system, [{role:"user", content:"Give me my next lesson."}]);
+    const clean = raw.replace(/```json|```/g, "").trim();
+    state.lesson[state.lang] = JSON.parse(clean);
+    renderLesson();
+    saveSoon();
+  }catch(e){
+    box.innerHTML = '<div class="empty"><h2>That lesson didn\'t come through</h2><p>Usually a connection hiccup.</p></div>' +
+      '<button class="big" id="btn-lesson">Try again</button>';
+    $("btn-lesson").onclick = nextLesson;
+  }
+}
+
+/* ============================ boot ============================ */
+(async () => {
+  await store.load();
+  codeEl.value = state.code[state.lang];
+  setLang(state.lang);
+})();
+</script>
