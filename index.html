@@ -151,6 +151,17 @@
   .row{display:flex;gap:10px;margin-top:10px}
   .row .ghost,.row .big{margin-top:0}
 
+  .setup{
+    margin:12px 14px 0;padding:12px;border-radius:10px;
+    background:var(--accent);color:#0C1420;font-weight:600;font-size:14px;text-align:center;
+  }
+  .hint{
+    background:var(--surface);border:1px dashed var(--line);border-radius:10px;
+    padding:12px 14px;margin-top:10px;font-size:14px;color:var(--muted);
+  }
+  .steps{display:flex;gap:10px;margin-top:10px}
+  .steps button{flex:1;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:13px;color:var(--text)}
+  .steps button:disabled{opacity:.4}
   nav{flex:0 0 auto;display:flex;background:var(--surface);border-top:1px solid var(--line);height:var(--nav-h)}
   nav button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;color:var(--muted);position:relative}
   nav button[aria-pressed="true"]{color:var(--accent)}
@@ -176,6 +187,20 @@
 </header>
 
 <main>
+  <section class="pane" id="pane-welcome">
+    <div class="scroll lesson">
+      <div class="kicker">a pocket javascript sandbox</div>
+      <h2>Write code, run it, find out why it broke.</h2>
+      <p>Twelve built-in lessons take you from your first <code>console.log</code> to a small program that
+        totals a shopping cart. Everything runs on your phone. Nothing to install, no account, no sign-up.</p>
+      <p>There's also an AI instructor that can see your code and your errors and talk you through them.
+        That part is optional and needs a free key of your own — about a minute to set up, and you can do it later.</p>
+      <button class="big" id="btn-begin">Start with lesson 1</button>
+      <button class="ghost" id="btn-begin-key">Set up the AI tutor first</button>
+      <p class="note">Your code and progress are saved in this browser only. Nothing is uploaded anywhere.</p>
+    </div>
+  </section>
+
   <section class="pane" id="pane-lesson"><div class="scroll lesson" id="lesson-body"></div></section>
 
   <section class="pane on" id="pane-code">
@@ -211,6 +236,7 @@
   </section>
 
   <section class="pane" id="pane-tutor">
+    <button class="setup" id="btn-tutor-setup" hidden>Set up the AI tutor — free, about a minute</button>
     <div class="chat" id="chat"></div>
     <div class="chips">
       <button data-ask="Look at the code I have open and explain what it does, line by line, in plain language.">Explain my code</button>
@@ -228,24 +254,26 @@
     <div class="scroll set">
       <h2>Settings</h2>
 
-      <label for="key">Anthropic API key</label>
-      <input id="key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
-      <p class="note">The tutor and the lesson generator send requests to Claude, which needs your own key from
-        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
-        It is saved only in this browser on this phone — it never leaves the device except in requests to Anthropic.
-        Running code works without a key.</p>
+      <label for="provider">Tutor powered by</label>
+      <select id="provider">
+        <option value="google">Google AI Studio — free tier</option>
+        <option value="openrouter">OpenRouter — free models</option>
+        <option value="anthropic">Anthropic — paid</option>
+      </select>
+
+      <label for="key">API key</label>
+      <input id="key" type="password" placeholder="paste your key" autocomplete="off" spellcheck="false">
 
       <label for="model">Model</label>
-      <select id="model">
-        <option value="claude-sonnet-5">Sonnet 5 — best teaching</option>
-        <option value="claude-haiku-4-5-20251001">Haiku 4.5 — cheapest, fastest</option>
-        <option value="claude-opus-5">Opus 5 — most thorough</option>
-      </select>
+      <input id="model" type="text" spellcheck="false" autocapitalize="off" autocorrect="off">
 
       <div class="row">
         <button class="big" id="btn-save-key" style="flex:1">Save &amp; test</button>
       </div>
       <div class="status" id="key-status"></div>
+      <p class="note" id="provider-note"></p>
+      <p class="note">Keys are kept in this browser on this phone only, one per provider, so you can switch
+        without re-pasting. They are never part of the files you upload. Running code needs no key at all.</p>
 
       <label>Progress</label>
       <button class="ghost" id="btn-export">Export my progress to a file</button>
@@ -266,9 +294,159 @@
 const STARTER =
   'const name = "friend";\nconsole.log(`Hello, ${name}!`);\n\nfor (let i = 1; i < 4; i++) {\n  console.log(i, "x 7 =", i * 7);\n}\n';
 
+const PROVIDERS = {
+  google: {
+    label: "Google AI Studio",
+    url: "https://aistudio.google.com/apikey",
+    model: "gemini-2.5-flash",
+    note: "Free tier, no card required. Sign in with a Google account, create a key (starts with AIza), paste it above. " +
+          "If a model name ever stops working, put another Flash model in the Model box — that field is free text on purpose."
+  },
+  openrouter: {
+    label: "OpenRouter",
+    url: "https://openrouter.ai/keys",
+    model: "meta-llama/llama-3.3-70b-instruct:free",
+    note: "Any model id ending in :free costs nothing. Browse openrouter.ai/models, filter to free, and paste the id above."
+  },
+  anthropic: {
+    label: "Anthropic console",
+    url: "https://console.anthropic.com/settings/keys",
+    model: "claude-haiku-4-5-20251001",
+    note: "Pay as you go — add credit and set a spend limit. Best teaching quality, but it costs real money per message."
+  }
+};
+
+/* Built-in course — works with no key, no connection. */
+const LESSONS = [
+  {
+    title: "Printing and variables",
+    explanation: [
+      "`console.log()` is how you make the computer show you something. Everything you print appears in the output panel below the editor.",
+      "A variable is a name for a value. `const` is for names that won't change, `let` for names that will."
+    ],
+    starterCode: 'const language = "JavaScript";\nlet year = 2026;\n\nconsole.log("Learning", language, "in", year);\n\n// TODO: make a variable called goal and print it\n',
+    task: "Create a variable named goal holding any sentence you like, then print it.",
+    hint: "const goal = \"build my own app\"; on one line, then console.log(goal); on the next."
+  },
+  {
+    title: "Strings and template literals",
+    explanation: [
+      "Text is a string. You can glue strings together with `+`, but it gets ugly fast.",
+      "Backticks let you drop values straight into text: `` `Hello ${name}` ``. Those are backticks, not quote marks."
+    ],
+    starterCode: 'const name = "Sam";\nconst drink = "coffee";\n\nconsole.log("Old way: " + name + " likes " + drink);\n\n// TODO: print the same sentence using a template literal\n',
+    task: "Print the same sentence again, this time with backticks and ${} instead of plus signs.",
+    hint: "console.log(`${name} likes ${drink}`); — the backtick key is usually top-left, and it's on the key strip above the editor."
+  },
+  {
+    title: "Numbers and math",
+    explanation: [
+      "JavaScript does arithmetic with `+ - * /`. There's no separate type for whole numbers and decimals — it's all just numbers.",
+      "`.toFixed(2)` rounds a number to two decimal places, which is what you want for money."
+    ],
+    starterCode: 'const price = 12.5;\nconst quantity = 4;\n\nconsole.log("Total:", price * quantity);\n\n// TODO: add 7% tax and print the total rounded to 2 decimals\n',
+    task: "Work out the total plus 7% tax, and print it with exactly two decimal places.",
+    hint: "Multiplying by 1.07 adds 7%. Then call .toFixed(2) on the result."
+  },
+  {
+    title: "True, false and comparison",
+    explanation: [
+      "A comparison like `5 > 3` produces a boolean — either `true` or `false`. That's a value like any other, so you can store it in a variable.",
+      "`===` asks whether two things are equal. A single `=` means assignment, which is a classic source of bugs."
+    ],
+    starterCode: 'const temperature = 68;\n\nconsole.log(temperature > 60);\nconsole.log(temperature === 68);\n\n// TODO: make a variable isWarm that is true when temperature is above 75, then print it\n',
+    task: "Store the result of a comparison in a variable called isWarm and print it.",
+    hint: "const isWarm = temperature > 75; — you don't need an if statement, the comparison is already true or false."
+  },
+  {
+    title: "Making decisions with if",
+    explanation: [
+      "`if` runs a block only when its condition is true. `else` covers everything else.",
+      "`else if` lets you chain more conditions. They're checked top to bottom, and the first match wins — so the order matters."
+    ],
+    starterCode: 'const hour = 14;\n\nif (hour < 12) {\n  console.log("Good morning");\n} else {\n  console.log("Good afternoon");\n}\n\n// TODO: make hour 18 or later print "Good evening"\n',
+    task: "Add a branch so that an hour of 18 or more prints Good evening. Change hour to 20 to test it.",
+    hint: "Put else if (hour >= 18) before the plain else — if it comes after, the else has already caught it."
+  },
+  {
+    title: "Lists of things: arrays",
+    explanation: [
+      "An array holds many values in order. You reach one by its position: `tools[0]` is the first, because counting starts at zero.",
+      "`.length` tells you how many items there are, and `.push()` adds one to the end."
+    ],
+    starterCode: 'const tools = ["screwdriver", "pliers", "multimeter"];\n\nconsole.log(tools[0]);\nconsole.log(tools.length);\n\n// TODO: add "soldering iron" to the end, then print the whole array\n',
+    task: "Add one more tool to the array and print the full list.",
+    hint: "tools.push(\"soldering iron\"); then console.log(tools); prints all of it at once."
+  },
+  {
+    title: "Repeating with a for loop",
+    explanation: [
+      "A `for` loop runs the same block over and over. The three parts are: start at `i = 0`, keep going while `i < length`, add one each time.",
+      "Inside the loop, `i` is the current position — so `scores[i]` is the current item."
+    ],
+    starterCode: 'const scores = [7, 12, 3, 9];\n\nfor (let i = 0; i < scores.length; i++) {\n  console.log("score:", scores[i]);\n}\n\n// TODO: add up all the scores into a variable called total, then print it\n',
+    task: "Total the numbers in the array and print the sum after the loop finishes.",
+    hint: "Declare let total = 0; before the loop, then total += scores[i]; inside it. Print total after the closing brace."
+  },
+  {
+    title: "Functions",
+    explanation: [
+      "A function is a named piece of code you can run whenever you want. The words in the parentheses are its inputs.",
+      "Defining a function doesn't run it — you have to call it by name, like `greet(\"Ada\")`."
+    ],
+    starterCode: 'function greet(name) {\n  console.log("Hello, " + name + "!");\n}\n\ngreet("Ada");\n\n// TODO: write a function called double that takes a number and prints it times two\n',
+    task: "Write a function named double, then call it with a few different numbers.",
+    hint: "function double(n) { console.log(n * 2); } — then call double(5); on its own line."
+  },
+  {
+    title: "Returning a value",
+    explanation: [
+      "`return` hands a value back to whoever called the function, so you can store it or use it in more maths.",
+      "A function that prints and a function that returns are different tools. Returning is usually more useful, because the caller decides what to do with the answer."
+    ],
+    starterCode: 'function add(a, b) {\n  return a + b;\n}\n\nconst sum = add(3, 4);\nconsole.log(sum);\n\n// TODO: write celsius(f) that RETURNS the celsius value, then print celsius(212)\n',
+    task: "Write a function that converts Fahrenheit to Celsius and returns the result. 212 should give 100.",
+    hint: "The formula is (f - 32) * 5 / 9. Use return, not console.log, inside the function."
+  },
+  {
+    title: "Objects",
+    explanation: [
+      "An object groups related facts under labels instead of positions: `computer.brand` rather than `computer[0]`.",
+      "You can add a new property at any time just by assigning to it."
+    ],
+    starterCode: 'const computer = {\n  brand: "Dell",\n  ram: 16,\n  working: true\n};\n\nconsole.log(computer.brand);\nconsole.log(computer.ram);\n\n// TODO: add a price property, then print the whole object\n',
+    task: "Give the computer a price, then print the entire object at once.",
+    hint: "computer.price = 450; then console.log(computer); — adding a property works even though it's a const."
+  },
+  {
+    title: "map and filter",
+    explanation: [
+      "`.map()` makes a new array by transforming every item. `.filter()` makes a new array containing only the items you keep.",
+      "Both take an arrow function: `p => p * 2` means \"given p, produce p times two\". For filter, return true to keep an item."
+    ],
+    starterCode: 'const prices = [10, 25, 4, 60];\n\nconst doubled = prices.map(p => p * 2);\nconsole.log(doubled);\n\n// TODO: use filter to build a list of prices above 20, then print it\n',
+    task: "Filter the array down to prices over 20 and print the result. The original array should be unchanged.",
+    hint: "const expensive = prices.filter(p => p > 20); — then print both expensive and prices to see the original survived."
+  },
+  {
+    title: "Putting it together",
+    explanation: [
+      "This one combines everything: an array of objects, a loop, and a running total.",
+      "`for (const row of cart)` walks through the items directly, without bothering with index numbers."
+    ],
+    starterCode: 'const cart = [\n  { item: "keyboard", price: 45 },\n  { item: "mouse", price: 20 },\n  { item: "monitor", price: 180 }\n];\n\n// TODO: print each item with its price, then print the total for the whole cart\n',
+    task: "Print a line per item, then the cart total on its own line. Try adding a fourth item to check it still works.",
+    hint: "let total = 0; before the loop. Inside: console.log(row.item, row.price); and total += row.price;"
+  }
+];
+
 let state = {
-  apiKey: "",
-  model: "claude-sonnet-5",
+  provider: "google",
+  seen: false,
+  track: "builtin",
+  idx: 0,
+  keys: {google:"", openrouter:"", anthropic:""},
+  models: {google:PROVIDERS.google.model, openrouter:PROVIDERS.openrouter.model, anthropic:PROVIDERS.anthropic.model},
   code: STARTER,
   done: 0,
   covered: [],
@@ -282,9 +460,16 @@ let canStore = true;
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
-    if(raw) Object.assign(state, JSON.parse(raw), {lastRun:null});
+    if(!raw) return;
+    const saved = JSON.parse(raw);
+    const keys = Object.assign({}, state.keys, saved.keys || {});
+    const models = Object.assign({}, state.models, saved.models || {});
+    Object.assign(state, saved, {keys, models, lastRun:null});
+    if(!PROVIDERS[state.provider]) state.provider = "google";
   }catch(e){ canStore = false; }
 }
+const curKey = () => (state.keys[state.provider] || "").trim();
+const curModel = () => (state.models[state.provider] || PROVIDERS[state.provider].model).trim();
 let saveTimer;
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -296,7 +481,7 @@ const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 5
 const $ = id => document.getElementById(id);
 const codeEl = $("code"), outEl = $("out"), chatEl = $("chat");
 
-const panes = {lesson:$("pane-lesson"), code:$("pane-code"), tutor:$("pane-tutor"), settings:$("pane-settings")};
+const panes = {welcome:$("pane-welcome"), lesson:$("pane-lesson"), code:$("pane-code"), tutor:$("pane-tutor"), settings:$("pane-settings")};
 function go(name){
   for(const k in panes){
     panes[k].classList.toggle("on", k === name);
@@ -304,10 +489,14 @@ function go(name){
     if(b) b.setAttribute("aria-pressed", k === name);
   }
 }
-$("nav-lesson").onclick = () => go("lesson");
-$("nav-code").onclick = () => go("code");
-$("nav-tutor").onclick = () => go("tutor");
-$("btn-settings").onclick = () => go("settings");
+function seen(){ if(!state.seen){ state.seen = true; save(); } }
+$("nav-lesson").onclick = () => { seen(); go("lesson"); };
+$("nav-code").onclick = () => { seen(); go("code"); };
+$("nav-tutor").onclick = () => { seen(); go("tutor"); };
+$("btn-settings").onclick = () => { seen(); go("settings"); };
+$("btn-begin").onclick = () => { seen(); go("lesson"); };
+$("btn-begin-key").onclick = () => { seen(); go("settings"); };
+$("btn-tutor-setup").onclick = () => go("settings");
 
 /* ===================== editing ===================== */
 function setCode(val, selStart, selEnd){
@@ -431,25 +620,92 @@ $("btn-fix").onclick = () => {
 };
 
 /* ===================== claude ===================== */
-async function claude(system, messages){
-  if(!state.apiKey){ const e = new Error("no-key"); e.noKey = true; throw e; }
+async function failure(res){
+  let detail = "";
+  try{
+    const j = await res.json();
+    detail = (j.error && (j.error.message || j.error.status)) || "";
+  }catch(e){}
+  return new Error(res.status + (detail ? " — " + detail : ""));
+}
+
+async function anthropicCall(key, model, system, messages){
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-api-key": state.apiKey,
+      "x-api-key": key,
       "anthropic-version": "2023-06-01",
       "anthropic-dangerous-direct-browser-access": "true"
     },
-    body: JSON.stringify({model: state.model, max_tokens: 1000, system, messages})
+    body: JSON.stringify({model, max_tokens: 1000, system, messages})
   });
-  if(!res.ok){
-    let detail = "";
-    try{ const j = await res.json(); detail = (j.error && j.error.message) || ""; }catch(e){}
-    throw new Error("Claude returned " + res.status + (detail ? " — " + detail : ""));
-  }
+  if(!res.ok) throw await failure(res);
   const data = await res.json();
   return data.content.map(b => b.type === "text" ? b.text : "").join("").trim();
+}
+
+async function googleCall(key, model, system, messages){
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent";
+  const body = {
+    system_instruction: {parts: [{text: system}]},
+    contents: messages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{text: m.content}]
+    })),
+    generationConfig: {maxOutputTokens: 1400}
+  };
+  /* newer Gemini models think before answering and can spend the whole budget on it */
+  const thinky = /2\.5|gemini-3/.test(model);
+  if(thinky) body.generationConfig.thinkingConfig = {thinkingBudget: 0};
+  const send = () => fetch(url, {
+    method: "POST",
+    headers: {"content-type": "application/json", "x-goog-api-key": key},
+    body: JSON.stringify(body)
+  });
+  let res = await send();
+  if(!res.ok && thinky){
+    delete body.generationConfig.thinkingConfig;
+    res = await send();
+  }
+  if(!res.ok) throw await failure(res);
+  const data = await res.json();
+  const cand = data.candidates && data.candidates[0];
+  const text = cand && cand.content && cand.content.parts
+    ? cand.content.parts.map(p => p.text || "").join("").trim() : "";
+  if(!text) throw new Error("Empty reply" + (cand && cand.finishReason ? " (" + cand.finishReason + ")" : "") + " — try another model in settings.");
+  return text;
+}
+
+async function openrouterCall(key, model, system, messages){
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "authorization": "Bearer " + key,
+      "HTTP-Referer": location.origin,
+      "X-Title": "Code Dojo"
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1000,
+      messages: [{role: "system", content: system}].concat(messages)
+    })
+  });
+  if(!res.ok) throw await failure(res);
+  const data = await res.json();
+  const text = data.choices && data.choices[0] && data.choices[0].message
+    ? (data.choices[0].message.content || "").trim() : "";
+  if(!text) throw new Error("Empty reply — try another model in settings.");
+  return text;
+}
+
+async function talk(system, messages){
+  const key = curKey(), model = curModel();
+  if(!key){ const e = new Error("no-key"); e.noKey = true; throw e; }
+  if(state.provider === "anthropic") return anthropicCall(key, model, system, messages);
+  if(state.provider === "openrouter") return openrouterCall(key, model, system, messages);
+  return googleCall(key, model, system, messages);
 }
 
 function context(){
@@ -457,7 +713,7 @@ function context(){
   return [
     "Language: JavaScript, running in a browser sandbox.",
     "Lessons finished: " + state.done,
-    "Topics already covered: " + (state.covered.join(", ") || "none yet"),
+    "Topics already covered: " + (LESSONS.slice(0, state.idx + 1).map(x => x.title).concat(state.covered).join(", ") || "none yet"),
     l ? "Current lesson: " + l.title + " — task: " + l.task : "No lesson loaded.",
     "Code currently in their editor:\n" + (codeEl.value || "(empty)"),
     state.lastRun ? "Last run output:\n" + (state.lastRun.error || state.lastRun.output || "(nothing)") : "They haven't run anything yet."
@@ -491,11 +747,12 @@ function bubble(role, text){
   chatEl.scrollTop = chatEl.scrollHeight;
 }
 function renderChat(){
+  $("btn-tutor-setup").hidden = !!curKey();
   chatEl.innerHTML = "";
   if(!state.chat.length){
-    bubble("assistant", state.apiKey
+    bubble("assistant", curKey()
       ? "I'm your instructor. I can see the code in your editor and whatever it printed, so you can just say things like \"why did this break?\" or \"what does map do?\" and I'll know what you're looking at.\n\nWhat do you want to work on?"
-      : "I need an API key before I can teach. Tap the gear in the top right, paste a key from console.anthropic.com, and I'll be here.\n\nThe editor and Run button work fine without one.");
+      : "I need an API key before I can teach. Tap the gear in the top right — the free Google option takes about a minute to set up.\n\nThe editor and Run button work fine without one.");
   }
   state.chat.forEach(m => bubble(m.role, m.content));
 }
@@ -511,7 +768,7 @@ async function ask(text){
   dots.innerHTML = "<i></i><i></i><i></i>";
   chatEl.appendChild(dots); chatEl.scrollTop = chatEl.scrollHeight;
   try{
-    const reply = await claude(TUTOR_SYSTEM(), state.chat.slice(-12));
+    const reply = await talk(TUTOR_SYSTEM(), state.chat.slice(-12));
     dots.remove();
     state.chat.push({role:"assistant", content:reply});
     bubble("assistant", reply);
@@ -531,22 +788,60 @@ document.querySelectorAll(".chips button").forEach(b => b.onclick = () => ask(b.
 
 /* ===================== lessons ===================== */
 function renderLesson(){
-  const l = state.lesson, box = $("lesson-body");
-  if(!l){
-    box.innerHTML =
-      '<div class="empty"><h2>Nothing loaded yet</h2><p>Each lesson is built for where you are right now: one idea, a short explanation, ' +
-      'and starter code you finish yourself. Finish one and the next builds on it.</p></div>' +
-      '<button class="big" id="btn-lesson">Start my first lesson</button>';
-    $("btn-lesson").onclick = nextLesson;
-    return;
-  }
+  if(state.track === "ai") return renderAiLesson();
+
+  const i = Math.min(Math.max(state.idx, 0), LESSONS.length - 1);
+  const l = LESSONS[i];
+  const box = $("lesson-body");
   box.innerHTML =
-    '<div class="kicker">lesson ' + (state.done + 1) + ' · javascript</div>' +
+    '<div class="kicker">lesson ' + (i + 1) + ' of ' + LESSONS.length + ' · javascript</div>' +
+    '<h2></h2><div id="lesson-text"></div>' +
+    '<div class="task"><strong>Your turn</strong><span id="lesson-task"></span></div>' +
+    '<button class="big" id="btn-load">Put the starter code in the editor</button>' +
+    '<button class="ghost" id="btn-hint">Show me a hint</button>' +
+    '<div id="hint-slot"></div>' +
+    '<div class="steps">' +
+      '<button id="btn-prev"' + (i === 0 ? ' disabled' : '') + '>← Back</button>' +
+      '<button id="btn-next"' + (i === LESSONS.length - 1 ? ' disabled' : '') + '>Next lesson →</button>' +
+    '</div>' +
+    (curKey() ? '<button class="ghost" id="btn-custom">Ask the tutor for a custom lesson</button>' : '');
+
+  box.querySelector("h2").textContent = l.title;
+  $("lesson-task").textContent = l.task;
+  const t = $("lesson-text");
+  l.explanation.forEach(p => {
+    const el = document.createElement("p");
+    el.innerHTML = esc(p).replace(/`([^`]+)`/g, "<code>$1</code>");
+    t.appendChild(el);
+  });
+
+  $("btn-load").onclick = () => { setCode(l.starterCode, 0); go("code"); };
+  $("btn-hint").onclick = () => {
+    $("hint-slot").innerHTML = '<div class="hint"></div>';
+    $("hint-slot").firstChild.textContent = l.hint;
+    $("btn-hint").remove();
+  };
+  $("btn-prev").onclick = () => { state.idx = i - 1; save(); renderLesson(); };
+  $("btn-next").onclick = () => {
+    state.idx = i + 1;
+    if(state.idx > state.done){ state.done = state.idx; $("done-count").textContent = state.done; }
+    save(); renderLesson();
+    document.querySelector("#pane-lesson .scroll").scrollTop = 0;
+  };
+  if($("btn-custom")) $("btn-custom").onclick = () => { state.track = "ai"; nextLesson(); };
+}
+
+function renderAiLesson(){
+  const l = state.lesson, box = $("lesson-body");
+  if(!l){ state.track = "builtin"; return renderLesson(); }
+  box.innerHTML =
+    '<div class="kicker">custom lesson · javascript</div>' +
     '<h2></h2><div id="lesson-text"></div>' +
     '<div class="task"><strong>Your turn</strong><span id="lesson-task"></span></div>' +
     '<button class="big" id="btn-load">Put the starter code in the editor</button>' +
     '<button class="ghost" id="btn-hint">I want a hint</button>' +
-    '<button class="ghost" id="btn-done">I finished this — next lesson</button>';
+    '<button class="ghost" id="btn-done">I finished this — another one</button>' +
+    '<button class="ghost" id="btn-builtin">Back to the built-in lessons</button>';
   box.querySelector("h2").textContent = l.title;
   $("lesson-task").textContent = l.task;
   const t = $("lesson-text");
@@ -563,6 +858,7 @@ function renderLesson(){
     $("done-count").textContent = state.done;
     nextLesson();
   };
+  $("btn-builtin").onclick = () => { state.track = "builtin"; save(); renderLesson(); };
 }
 
 async function nextLesson(){
@@ -570,7 +866,7 @@ async function nextLesson(){
   box.innerHTML = '<div class="empty"><h2>Building your lesson…</h2><p>Picking something that follows on from what you have already done.</p></div>';
   const system =
     "You write single micro-lessons for a beginner learning JavaScript in a phone sandbox that runs code in the browser. " +
-    "They have finished " + state.done + " lessons. Already covered: " + (state.covered.join(", ") || "nothing yet") + ". " +
+    "Already covered: " + LESSONS.slice(0, state.idx + 1).map(x => x.title).concat(state.covered).join(", ") + ". " +
     "Teach exactly ONE new idea that follows naturally from that. Keep it very short — this is a phone screen. " +
     "Starter code must run in the sandbox: plain JavaScript, output with console.log, no prompt(), no DOM, no fetch, no packages. " +
     "Starter code should be mostly complete with one clearly marked TODO for them to finish. " +
@@ -578,36 +874,56 @@ async function nextLesson(){
     '{"title": string, "explanation": [string, string], "starterCode": string, "task": string}. ' +
     "Each explanation string is 1-3 plain sentences. Use backticks around code words inside explanations.";
   try{
-    const raw = await claude(system, [{role:"user", content:"Give me my next lesson."}]);
+    const raw = await talk(system, [{role:"user", content:"Give me my next lesson."}]);
     state.lesson = JSON.parse(raw.replace(/```json|```/g, "").trim());
+    state.track = "ai";
     renderLesson();
     saveSoon();
   }catch(e){
     box.innerHTML = '<div class="empty"><h2>' + (e.noKey ? "No API key yet" : "That lesson didn\'t come through") + '</h2><p>' +
-      (e.noKey ? "Tap the gear in the top right and add a key from console.anthropic.com." : esc(e.message)) + '</p></div>' +
-      '<button class="big" id="btn-lesson">Try again</button>';
+      (e.noKey ? "Tap the gear in the top right and add a key — the free Google option takes about a minute." : esc(e.message)) + '</p></div>' +
+      '<button class="big" id="btn-lesson">Try again</button>' +
+      '<button class="ghost" id="btn-builtin">Back to the built-in lessons</button>';
     $("btn-lesson").onclick = nextLesson;
+    $("btn-builtin").onclick = () => { state.track = "builtin"; save(); renderLesson(); };
   }
 }
 
 /* ===================== settings ===================== */
+function renderProvider(){
+  const p = PROVIDERS[state.provider];
+  $("provider").value = state.provider;
+  $("key").value = state.keys[state.provider] || "";
+  $("model").value = curModel();
+  $("provider-note").innerHTML =
+    'Get a key at <a href="' + p.url + '" target="_blank" rel="noopener">' + p.url.replace("https://","") + '</a>. ' + esc(p.note);
+  $("key-status").textContent = "";
+}
+$("provider").onchange = () => {
+  state.provider = $("provider").value;
+  if(!state.models[state.provider]) state.models[state.provider] = PROVIDERS[state.provider].model;
+  renderProvider();
+  save();
+};
 $("btn-save-key").onclick = async () => {
   const st = $("key-status");
-  state.apiKey = $("key").value.trim();
-  state.model = $("model").value;
+  state.keys[state.provider] = $("key").value.trim();
+  state.models[state.provider] = $("model").value.trim() || PROVIDERS[state.provider].model;
+  $("model").value = state.models[state.provider];
   save();
-  if(!state.apiKey){ st.className = "status bad"; st.textContent = "Key cleared."; return; }
+  if(!curKey()){ st.className = "status bad"; st.textContent = "Key cleared."; return; }
   st.className = "status"; st.textContent = "Checking…";
   try{
-    await claude("Reply with the single word: ready", [{role:"user", content:"ping"}]);
+    await talk("Reply with the single word: ready", [{role:"user", content:"ping"}]);
     st.className = "status ok"; st.textContent = "Working. The tutor is live.";
-    if(!state.chat.length) renderChat();
+    renderChat();
+    if(state.track === "builtin") renderLesson();
   }catch(e){
     st.className = "status bad"; st.textContent = e.message;
   }
 };
 $("btn-export").onclick = () => {
-  const copy = Object.assign({}, state); delete copy.apiKey;
+  const copy = Object.assign({}, state); delete copy.keys;
   const url = URL.createObjectURL(new Blob([JSON.stringify(copy, null, 2)], {type:"application/json"}));
   const a = document.createElement("a");
   a.href = url; a.download = "code-dojo-progress.json"; a.click();
@@ -615,8 +931,8 @@ $("btn-export").onclick = () => {
 };
 $("btn-reset").onclick = () => {
   if(!confirm("Erase your code, lessons and chat? The API key stays.")) return;
-  const k = state.apiKey, m = state.model;
-  state = {apiKey:k, model:m, code:STARTER, done:0, covered:[], lesson:null, chat:[], lastRun:null};
+  const provider = state.provider, keys = state.keys, models = state.models;
+  state = {provider, keys, models, seen:true, track:"builtin", idx:0, code:STARTER, done:0, covered:[], lesson:null, chat:[], lastRun:null};
   save();
   codeEl.value = STARTER;
   $("done-count").textContent = "0";
@@ -627,14 +943,14 @@ $("btn-reset").onclick = () => {
 /* ===================== boot ===================== */
 load();
 codeEl.value = state.code;
-$("key").value = state.apiKey;
-$("model").value = state.model;
+renderProvider();
 $("done-count").textContent = state.done;
 $("storage-note").textContent = canStore
   ? "Your code and progress save automatically on this device."
   : "This browser is blocking storage, so progress will not survive a reload.";
 renderLesson();
 renderChat();
+if(!state.seen) go("welcome");
 
 if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")){
   navigator.serviceWorker.register("sw.js").catch(() => {});
